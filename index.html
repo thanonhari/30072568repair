@@ -162,7 +162,7 @@
                     </form>
                 </div>
             </div>
-            <div id="loadingMessage" class="text-center text-gray-500 mt-4 hidden"><p>กำลังโหลด...</p></div>
+            <div id="loadingMessage" class="text-center text-gray-500 mt-4"><p>กำลังโหลด...</p></div>
         </main>
         <footer class="bg-gray-100 border-t border-gray-200 py-4 mt-auto">
              <div class="container mx-auto px-4 text-center text-sm text-gray-600">
@@ -180,7 +180,6 @@
         let imageFileName = "";
         let imageMimeType = "";
 
-        // === ปรับปรุง: เพิ่มฟังก์ชัน generateUUID จาก v3_javascript.html ===
         function generateUUID() {
             return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
                 const r = (Math.random() * 16) | 0;
@@ -188,6 +187,32 @@
                 return v.toString(16);
             });
         }
+        
+        // === เพิ่มเข้ามา: ฟังก์ชันดึงข้อมูลผู้ใช้จากชีต Users ===
+        function fetchAndFillUserDetails(email) {
+            if (!email) return;
+
+            google.script.run
+                .withSuccessHandler(user => {
+                    // ถ้าหาข้อมูลผู้ใช้เจอในชีต Users
+                    if (user) {
+                        document.getElementById('userPosition').value = user.position || '';
+                        document.getElementById('userDepartment').value = user.department || '';
+                        document.getElementById('userPhone').value = user.phone || '';
+                        document.getElementById('userLocation').value = user.location || '';
+                        
+                        // อัปเดต UUID จากชีต ถ้ามี
+                        if (user.uuid) {
+                            document.getElementById('uuid').value = user.uuid;
+                        }
+                    }
+                })
+                .withFailureHandler(error => {
+                    console.error("Error fetching user details:", error);
+                })
+                .getUserByEmail(email); // เรียกฟังก์ชันใน Code.js
+        }
+
 
         document.addEventListener('DOMContentLoaded', async function() {
             const submitButton = document.getElementById('submitButton');
@@ -195,7 +220,6 @@
             const imageUpload = document.getElementById('imageUpload');
             const imagePreview = document.getElementById('imagePreview');
 
-            loadingMessage.classList.remove('hidden');
             submitButton.disabled = true;
 
             imageUpload.addEventListener('change', function(event) {
@@ -228,7 +252,6 @@
             try {
                 await liff.init({ liffId: LIFF_ID });
                 if (!liff.isLoggedIn()) {
-                    // ขอ permission 'email' ตอน login
                     liff.login({ redirectUri: window.location.href }); 
                     return; 
                 }
@@ -237,7 +260,16 @@
                 const decodedToken = liff.getDecodedIDToken();
                 const userEmail = decodedToken.email;
 
-                // === ปรับปรุง: เติมข้อมูลลงในฟิลด์ที่ถูกต้อง ===
+                if (!userEmail) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'ไม่สามารถดึงอีเมลได้',
+                        text: 'กรุณาตรวจสอบว่าคุณได้เปิดสิทธิ์ "email" ใน LINE Developers Console และผู้ใช้ได้กดยินยอมแล้ว',
+                        allowOutsideClick: false
+                    });
+                    return;
+                }
+
                 document.getElementById('lineUserId').value = profile.userId;
                 document.getElementById('lineDisplayName').value = profile.displayName;
                 document.getElementById('linePictureUrl').value = profile.pictureUrl;
@@ -249,7 +281,8 @@
                 document.getElementById('userDisplayName').textContent = profile.displayName; 
                 document.getElementById('userProfilePic').src = profile.pictureUrl;
                 
-                // === ปรับปรุง: เรียกใช้ฟังก์ชันดึงข้อมูลครุภัณฑ์ที่แก้ไขใหม่ ===
+                // === เรียกใช้ฟังก์ชันใหม่ที่เราเพิ่มเข้ามา ===
+                fetchAndFillUserDetails(userEmail);
                 loadEquipmentHistory(userEmail);
                 
                 loadingMessage.classList.add('hidden');
@@ -273,21 +306,19 @@
                 submitButton.disabled = true;
                 Swal.fire({ title: 'กำลังส่งข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-                 // === ปรับปรุง: แก้ไขชื่อ Parameters ให้ตรงกับ Code.js ===
                 const formData = new FormData(this);
                 const params = new URLSearchParams();
 
-                // ดึงข้อมูลจากฟอร์มมาใส่ใน params
                 for (const pair of formData.entries()) {
                     params.append(pair[0], pair[1]);
                 }
 
-                // เพิ่มข้อมูลที่ไม่มีในฟอร์มโดยตรง
                 params.append('lineUserId', document.getElementById('lineUserId').value);
                 params.append('lineDisplayName', document.getElementById('lineDisplayName').value);
                 params.append('linePictureUrl', document.getElementById('linePictureUrl').value);
-                params.append('role', 'User'); // กำหนด role พื้นฐาน
-                params.append('pdpaConsent', document.getElementById('pdpaConsent').checked);
+                params.append('role', 'User');
+                params.append('ticketId', `REP${new Date().toISOString().slice(2,10).replace(/-/g,"")}-${Math.floor(Math.random()*10000).toString().padStart(4,"0")}`);
+
 
                 if (imageBase64) {
                     params.append('imageBase64', imageBase64);
@@ -295,7 +326,6 @@
                     params.append('imageMimeType', imageMimeType);
                 }
                 
-                // ใช้ google.script.run เพื่อความปลอดภัยและเข้ากันได้กับ Backend
                  google.script.run
                     .withSuccessHandler(response => {
                         submitButton.disabled = false;
@@ -317,10 +347,9 @@
                         submitButton.disabled = false;
                         Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาดในการเชื่อมต่อ', text: 'ไม่สามารถส่งข้อมูลได้: ' + error.message });
                     })
-                    .doPost({ parameter: Object.fromEntries(params) }); // ส่งเป็น Object
+                    .doPost({ parameter: Object.fromEntries(params) });
             });
             
-            // === ปรับปรุง: ฟังก์ชันสำหรับดึงประวัติครุภัณฑ์ ===
             function loadEquipmentHistory(userEmail) {
                 const equipmentSelect = document.getElementById('equipmentHistory');
                 if (!userEmail) return;
@@ -331,14 +360,13 @@
                             equipmentSelect.innerHTML = '<option value="">-- เลือกจากประวัติ --</option>'; 
                             history.forEach(eq => {
                                 const optionText = `${eq.name} (${eq.id})`;
-                                // ใช้ JSON string เพื่อเก็บข้อมูลทั้ง name และ id
                                 const optionValue = JSON.stringify(eq);
                                 const option = new Option(optionText, optionValue);
                                 equipmentSelect.add(option);
                             });
                             equipmentSelect.disabled = false;
                         } else {
-                            equipmentSelect.innerHTML = '<option value="">ไม่พบประวัติการแจ้งซ่อม</option>';
+                             equipmentSelect.innerHTML = '<option value="">ไม่พบประวัติครุภัณฑ์</option>';
                         }
                     })
                     .withFailureHandler(error => {
@@ -348,7 +376,6 @@
                     .getEquipmentHistoryForUser(userEmail);
             }
 
-            // === ปรับปรุง: Event Listener สำหรับเลือกครุภัณฑ์จากประวัติ ===
             document.getElementById('equipmentHistory').addEventListener('change', function(e) {
                 if (e.target.value) {
                     try {
