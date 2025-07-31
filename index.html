@@ -95,142 +95,147 @@
 
         let imageBase64 = "", imageFileName = "", imageMimeType = "";
 
-        function generateUUID() { return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => { const r = (Math.random() * 16) | 0, v = c === "x" ? r : (r & 0x3) | 0x8; return v.toString(16); }); }
-        function generateTicketID() { const d=new Date(); return `REP${d.getFullYear().toString().substr(-2)}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}-${Math.floor(Math.random()*10000).toString().padStart(4,"0")}`; }
-        
-        async function fetchFromApi(action, params = {}) {
-            const url = new URL(SCRIPT_URL);
-            url.searchParams.append('action', action);
-            for (const key in params) { url.searchParams.append(key, params[key]); }
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`API call failed for action: ${action}`);
-            return response.json();
-        }
+    function generateUUID() { return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => { const r = (Math.random() * 16) | 0, v = c === "x" ? r : (r & 0x3) | 0x8; return v.toString(16); }); }
+    function generateTicketID() { const d=new Date(); return `REP${d.getFullYear().toString().substr(-2)}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}-${Math.floor(Math.random()*10000).toString().padStart(4,"0")}`; }
+    
+    async function fetchFromApi(action, params = {}) {
+        const url = new URL(SCRIPT_URL);
+        url.searchParams.append('action', action);
+        for (const key in params) { url.searchParams.append(key, params[key]); }
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`API call failed for action: ${action}`);
+        return response.json();
+    }
 
-        document.addEventListener('DOMContentLoaded', async () => {
-            const submitButton = document.getElementById('submitButton');
-            const loadingMessage = document.getElementById('loadingMessage');
-            submitButton.disabled = true;
+    document.addEventListener('DOMContentLoaded', async () => {
+        const submitButton = document.getElementById('submitButton');
+        const loadingMessage = document.getElementById('loadingMessage');
+        submitButton.disabled = true;
 
-            try {
-                await liff.init({ liffId: LIFF_ID });
-                if (!liff.isLoggedIn()) { liff.login({ redirectUri: window.location.href }); return; }
-                
-                const [profile, decodedToken] = await Promise.all([liff.getProfile(), liff.getDecodedIDToken()]);
-                const userEmail = decodedToken.email;
+        try {
+            await liff.init({ liffId: LIFF_ID });
+            if (!liff.isLoggedIn()) { liff.login({ redirectUri: window.location.href }); return; }
+            
+            const [profile, decodedToken] = await Promise.all([liff.getProfile(), liff.getDecodedIDToken()]);
+            const userEmail = decodedToken.email;
 
-                if (!userEmail) {
-                    Swal.fire({ icon: 'error', title: 'ไม่สามารถดึงอีเมลได้', text: 'กรุณาเปิดสิทธิ์ "email" ใน LINE Developers Console และกดยินยอมในหน้าจอขอสิทธิ์' });
-                    return;
-                }
-
-                // --- เติมข้อมูลจาก LINE Profile ---
-                document.getElementById('lineUserId').value = profile.userId;
-                document.getElementById('lineDisplayName').value = profile.displayName;
-                document.getElementById('linePictureUrl').value = profile.pictureUrl;
-                document.getElementById('userName').value = profile.displayName;
-                document.getElementById('userEmail').value = userEmail;
-                document.getElementById('displayUserEmail').value = userEmail;
-                document.getElementById('userDisplayName').textContent = profile.displayName;
-                document.getElementById('userProfilePic').src = profile.pictureUrl;
-                document.getElementById('uuid').value = generateUUID();
-                document.getElementById('ticketId').value = generateTicketID();
-                
-                const now = new Date();
-                document.getElementById('repairDate').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-                document.getElementById('repairTime').value = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-
-                // --- ดึงข้อมูลเพิ่มเติมจากชีต ด้วย `fetch` ---
-                const [userDetails, equipmentHistory] = await Promise.all([
-                    fetchFromApi('getUserByEmail', { email: userEmail }),
-                    fetchFromApi('getEquipmentHistoryForUser', { email: userEmail })
-                ]);
-                
-                if (userDetails) {
-                    document.getElementById('userPosition').value = userDetails.position || '';
-                    document.getElementById('userDepartment').value = userDetails.department || '';
-                    document.getElementById('userPhone').value = userDetails.phone || '';
-                    document.getElementById('userLocation').value = userDetails.location || '';
-                    if (userDetails.uuid) document.getElementById('uuid').value = userDetails.uuid;
-                }
-                
-                const equipmentSelect = document.getElementById('equipmentHistory');
-                if (equipmentHistory && equipmentHistory.length > 0) {
-                    equipmentSelect.innerHTML = '<option value="">-- เลือกจากประวัติ --</option>'; 
-                    equipmentHistory.forEach(eq => equipmentSelect.add(new Option(`${eq.name} (${eq.id})`, JSON.stringify(eq))));
-                    equipmentSelect.disabled = false;
-                } else {
-                    equipmentSelect.innerHTML = '<option value="">ไม่พบประวัติ</option>';
-                }
-                
-                loadingMessage.classList.add('hidden');
-                submitButton.disabled = false;
-
-            } catch (err) {
-                loadingMessage.textContent = 'เกิดข้อผิดพลาดในการโหลดข้อมูล';
-                Swal.fire({ icon: 'error', title: 'LIFF Error', text: `ไม่สามารถโหลดข้อมูลผู้ใช้จาก LINE ได้: ${err.message}` });
-                console.error("LIFF Error:", err);
-            }
-        });
-        
-        document.getElementById('imageUpload').addEventListener('change', (event) => {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = e => { 
-                document.getElementById('imagePreview').src = e.target.result;
-                document.getElementById('imagePreview').classList.remove('hidden');
-                imageBase64 = e.target.result.split(',')[1];
-            };
-            reader.readAsDataURL(file);
-            imageFileName = file.name;
-            imageMimeType = file.type;
-        });
-
-        document.getElementById('equipmentHistory').addEventListener('change', (e) => {
-            if (!e.target.value) return;
-            const eq = JSON.parse(e.target.value);
-            document.getElementById('equipmentName').value = eq.name || '';
-            document.getElementById('equipmentId').value = eq.id || '';
-        });
-
-        document.getElementById('repairForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            if (submitButton.disabled) return;
-            if (!document.getElementById('pdpaConsent').checked) {
-                Swal.fire({ icon: "warning", title: "กรุณายอมรับเงื่อนไข", text: "คุณต้องยอมรับเงื่อนไขการให้บริการฯ ก่อน" });
+            if (!userEmail) {
+                Swal.fire({ icon: 'error', title: 'ไม่สามารถดึงอีเมลได้', text: 'กรุณาเปิดสิทธิ์ "email" ใน LINE Developers Console และกดยินยอมในหน้าจอขอสิทธิ์' });
                 return;
             }
 
-            submitButton.disabled = true;
-            Swal.fire({ title: "กำลังส่งข้อมูล...", allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-
-            const formData = new FormData(e.target);
-            const params = new URLSearchParams();
-            for(const pair of formData.entries()) { params.append(pair[0], pair[1]); }
+            // --- เติมข้อมูลจาก LINE Profile (ค่าเริ่มต้น) ---
+            document.getElementById('lineUserId').value = profile.userId;
+            document.getElementById('lineDisplayName').value = profile.displayName;
+            document.getElementById('linePictureUrl').value = profile.pictureUrl;
+            document.getElementById('userName').value = profile.displayName; // << ใช้ชื่อ LINE เป็นค่าเริ่มต้น
+            document.getElementById('userEmail').value = userEmail;
+            document.getElementById('displayUserEmail').value = userEmail;
+            document.getElementById('userDisplayName').textContent = profile.displayName;
+            document.getElementById('userProfilePic').src = profile.pictureUrl;
+            document.getElementById('uuid').value = generateUUID();
+            document.getElementById('ticketId').value = generateTicketID();
             
-            if (imageBase64) {
-                params.append('imageBase64', imageBase64);
-                params.append('imageName', imageFileName);
-                params.append('imageMimeType', imageMimeType);
-            }
-            params.append('role', 'User');
+            const now = new Date();
+            document.getElementById('repairDate').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+            document.getElementById('repairTime').value = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
-            try {
-                const response = await fetch(SCRIPT_URL, { method: 'POST', body: params });
-                const result = await response.json();
-                if (result.result === 'success') {
-                    await Swal.fire({ icon: 'success', title: 'ส่งเรื่องแจ้งซ่อมสำเร็จ!' });
-                    if (liff.isInClient()) liff.closeWindow();
-                } else {
-                    throw new Error(result.message || 'ไม่สามารถบันทึกข้อมูลได้');
+            const [userDetails, equipmentHistory] = await Promise.all([
+                fetchFromApi('getUserByEmail', { email: userEmail }),
+                fetchFromApi('getEquipmentHistoryForUser', { email: userEmail })
+            ]);
+            
+            // --- ✨ ส่วนแก้ไข: ตรวจสอบและแสดงผลชื่อผู้แจ้งที่ลงทะเบียนไว้ ---
+            if (userDetails) {
+                // ถ้าเจอผู้ใช้ในระบบ, ให้ใช้ชื่อที่ลงทะเบียนไว้ทับชื่อจาก LINE
+                if (userDetails.name) {
+                    document.getElementById('userName').value = userDetails.name;
                 }
-            } catch (error) {
-                Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: error.message });
-            } finally {
-                submitButton.disabled = false;
+                document.getElementById('userPosition').value = userDetails.position || '';
+                document.getElementById('userDepartment').value = userDetails.department || '';
+                document.getElementById('userPhone').value = userDetails.phone || '';
+                document.getElementById('userLocation').value = userDetails.location || '';
+                if (userDetails.uuid) document.getElementById('uuid').value = userDetails.uuid;
             }
-        });
+            
+            const equipmentSelect = document.getElementById('equipmentHistory');
+            if (equipmentHistory && equipmentHistory.length > 0) {
+                equipmentSelect.innerHTML = '<option value="">-- เลือกจากประวัติ --</option>'; 
+                equipmentHistory.forEach(eq => equipmentSelect.add(new Option(`${eq.name} (${eq.id})`, JSON.stringify(eq))));
+                equipmentSelect.disabled = false;
+            } else {
+                equipmentSelect.innerHTML = '<option value="">ไม่พบประวัติ</option>';
+            }
+            
+            loadingMessage.classList.add('hidden');
+            submitButton.disabled = false;
+
+        } catch (err) {
+            loadingMessage.textContent = 'เกิดข้อผิดพลาดในการโหลดข้อมูล';
+            Swal.fire({ icon: 'error', title: 'LIFF Error', text: `ไม่สามารถโหลดข้อมูลผู้ใช้จาก LINE ได้: ${err.message}` });
+            console.error("LIFF Error:", err);
+        }
+    });
+    
+    // (ส่วนที่เหลือของ script คงเดิมทั้งหมด)
+    document.getElementById('imageUpload').addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = e => { 
+            document.getElementById('imagePreview').src = e.target.result;
+            document.getElementById('imagePreview').classList.remove('hidden');
+            imageBase64 = e.target.result.split(',')[1];
+        };
+        reader.readAsDataURL(file);
+        imageFileName = file.name;
+        imageMimeType = file.type;
+    });
+
+    document.getElementById('equipmentHistory').addEventListener('change', (e) => {
+        if (!e.target.value) return;
+        const eq = JSON.parse(e.target.value);
+        document.getElementById('equipmentName').value = eq.name || '';
+        document.getElementById('equipmentId').value = eq.id || '';
+    });
+
+    document.getElementById('repairForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (submitButton.disabled) return;
+        if (!document.getElementById('pdpaConsent').checked) {
+            Swal.fire({ icon: "warning", title: "กรุณายอมรับเงื่อนไข", text: "คุณต้องยอมรับเงื่อนไขการให้บริการฯ ก่อน" });
+            return;
+        }
+
+        submitButton.disabled = true;
+        Swal.fire({ title: "กำลังส่งข้อมูล...", allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+        const formData = new FormData(e.target);
+        const params = new URLSearchParams();
+        for(const pair of formData.entries()) { params.append(pair[0], pair[1]); }
+        
+        if (imageBase64) {
+            params.append('imageBase64', imageBase64);
+            params.append('imageName', imageFileName);
+            params.append('imageMimeType', imageMimeType);
+        }
+        params.append('role', 'User');
+
+        try {
+            const response = await fetch(SCRIPT_URL, { method: 'POST', body: params });
+            const result = await response.json();
+            if (result.result === 'success') {
+                await Swal.fire({ icon: 'success', title: 'ส่งเรื่องแจ้งซ่อมสำเร็จ!' });
+                if (liff.isInClient()) liff.closeWindow();
+            } else {
+                throw new Error(result.message || 'ไม่สามารถบันทึกข้อมูลได้');
+            }
+        } catch (error) {
+            Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: error.message });
+        } finally {
+            submitButton.disabled = false;
+        }
+    });
     </script>
 </body>
 </html>
