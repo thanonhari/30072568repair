@@ -47,7 +47,14 @@
                             <h3 class="text-md font-medium text-gray-700 mb-2">ข้อมูลผู้แจ้ง (จาก LINE)</h3>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-3 bg-gray-100 rounded-md">
                                 <div><label for="userName" class="block text-sm font-medium text-gray-700">ชื่อ-นามสกุล <span class="text-red-500">*</span></label><input type="text" id="userName" name="userName" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md" required></div>
-                                <div><label class="block text-sm font-medium text-gray-500">อีเมล</label><input type="text" id="displayUserEmail" class="w-full mt-1 px-3 py-2 border-gray-200 rounded-md bg-gray-200" readonly></div>
+<!--                                 <div>
+                                    <label class="block text-sm font-medium text-gray-500">อีเมล</label>
+                                    <input type="text" id="displayUserEmail" class="w-full mt-1 px-3 py-2 border-gray-200 rounded-md bg-gray-200" readonly>
+                                </div> -->
+                                <div>
+    <label class="block text-sm font-medium text-gray-700">อีเมล <span id="emailRequired" class="text-red-500 hidden">*</span></label>
+    <input type="email" id="userEmailInput" name="userEmailInput" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-200" required>
+</div>
                             </div>
                         </div>
 
@@ -116,20 +123,35 @@
             await liff.init({ liffId: LIFF_ID });
             if (!liff.isLoggedIn()) { liff.login({ redirectUri: window.location.href }); return; }
             
-            const [profile, decodedToken] = await Promise.all([liff.getProfile(), liff.getDecodedIDToken()]);
-            const userEmail = decodedToken.email;
+                const [profile, decodedToken] = await Promise.all([liff.getProfile(), liff.getDecodedIDToken()]);
+                let userEmail = decodedToken.email; // ✨ เปลี่ยนจาก const เป็น let
 
-            if (!userEmail) {
-                Swal.fire({ icon: 'error', title: 'ไม่สามารถดึงอีเมลได้', text: 'กรุณาเปิดสิทธิ์ "email" ใน LINE Developers Console และกดยินยอมในหน้าจอขอสิทธิ์' });
-                return;
-            }
+                if (userEmail) {
+                    // กรณีดึงอีเมลจาก LINE ได้ (ทำงานเหมือนเดิม)
+                    userEmailInput.value = userEmail;
+                    userEmailInput.readOnly = true;
+                    document.getElementById('userEmail').value = userEmail;
+                } else {
+                    // กรณีดึงอีเมลจาก LINE ไม่ได้ (Logic ใหม่)
+                    userEmailInput.value = "";
+                    userEmailInput.readOnly = false; // ทำให้แก้ไขได้
+                    userEmailInput.placeholder = "กรุณากรอกอีเมลที่ติดต่อได้";
+                    userEmailInput.classList.remove('bg-gray-200'); // เอารูปแบบ readonly ออก
+                    emailRequiredSpan.classList.remove('hidden'); // แสดงเครื่องหมาย *
+                
+                    // เมื่อมีการพิมพ์ในช่องอีเมล ให้ไปอัปเดต hidden input ด้วย
+                    userEmailInput.addEventListener('input', (e) => {
+                        document.getElementById('userEmail').value = e.target.value;
+                    });
+                }
+                // --- ✨ สิ้นสุดส่วนที่เพิ่ม ---
 
             // --- เติมข้อมูลจาก LINE Profile (ค่าเริ่มต้น) ---
             document.getElementById('lineUserId').value = profile.userId;
             document.getElementById('lineDisplayName').value = profile.displayName;
             document.getElementById('linePictureUrl').value = profile.pictureUrl;
             document.getElementById('userName').value = profile.displayName; // << ใช้ชื่อ LINE เป็นค่าเริ่มต้น
-            document.getElementById('userEmail').value = userEmail;
+            // document.getElementById('userEmail').value = userEmail;
             document.getElementById('displayUserEmail').value = userEmail;
             document.getElementById('userDisplayName').textContent = profile.displayName;
             document.getElementById('userProfilePic').src = profile.pictureUrl;
