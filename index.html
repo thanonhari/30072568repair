@@ -115,61 +115,65 @@
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
-        const submitButton = document.getElementById('submitButton');
-        const loadingMessage = document.getElementById('loadingMessage');
-        submitButton.disabled = true;
+    const submitButton = document.getElementById('submitButton');
+    const loadingMessage = document.getElementById('loadingMessage');
+    submitButton.disabled = true;
 
-        try {
-            await liff.init({ liffId: LIFF_ID });
-            if (!liff.isLoggedIn()) { liff.login({ redirectUri: window.location.href }); return; }
+    try {
+        await liff.init({ liffId: LIFF_ID });
+        if (!liff.isLoggedIn()) {
+            liff.login({ redirectUri: window.location.href });
+            return;
+        }
+        
+        const [profile, decodedToken] = await Promise.all([liff.getProfile(), liff.getDecodedIDToken()]);
+        let userEmail = decodedToken.email;
+
+        // --- 1. จัดการช่องอีเมลเป็นอันดับแรก ---
+        const userEmailInput = document.getElementById('userEmailInput');
+        const emailRequiredSpan = document.getElementById('emailRequired');
+
+        if (userEmail) {
+            // กรณีดึงอีเมลจาก LINE ได้
+            userEmailInput.value = userEmail;
+            userEmailInput.readOnly = true;
+            document.getElementById('userEmail').value = userEmail; // อัปเดตค่าใน hidden input
+        } else {
+            // กรณีดึงอีเมลจาก LINE ไม่ได้
+            userEmailInput.value = "";
+            userEmailInput.readOnly = false;
+            userEmailInput.placeholder = "กรุณากรอกอีเมลที่ติดต่อได้";
+            userEmailInput.classList.remove('bg-gray-200');
+            emailRequiredSpan.classList.remove('hidden');
             
-                const [profile, decodedToken] = await Promise.all([liff.getProfile(), liff.getDecodedIDToken()]);
-                let userEmail = decodedToken.email; // ✨ เปลี่ยนจาก const เป็น let
+            userEmailInput.addEventListener('input', (e) => {
+                document.getElementById('userEmail').value = e.target.value;
+            });
+        }
 
-                if (userEmail) {
-                    // กรณีดึงอีเมลจาก LINE ได้ (ทำงานเหมือนเดิม)
-                    userEmailInput.value = userEmail;
-                    userEmailInput.readOnly = true;
-                    document.getElementById('userEmail').value = userEmail;
-                } else {
-                    // กรณีดึงอีเมลจาก LINE ไม่ได้ (Logic ใหม่)
-                    userEmailInput.value = "";
-                    userEmailInput.readOnly = false; // ทำให้แก้ไขได้
-                    userEmailInput.placeholder = "กรุณากรอกอีเมลที่ติดต่อได้";
-                    userEmailInput.classList.remove('bg-gray-200'); // เอารูปแบบ readonly ออก
-                    emailRequiredSpan.classList.remove('hidden'); // แสดงเครื่องหมาย *
-                
-                    // เมื่อมีการพิมพ์ในช่องอีเมล ให้ไปอัปเดต hidden input ด้วย
-                    userEmailInput.addEventListener('input', (e) => {
-                        document.getElementById('userEmail').value = e.target.value;
-                    });
-                }
-                // --- ✨ สิ้นสุดส่วนที่เพิ่ม ---
+        // --- 2. เติมข้อมูล Profile อื่นๆ ---
+        document.getElementById('lineUserId').value = profile.userId;
+        document.getElementById('lineDisplayName').value = profile.displayName;
+        document.getElementById('linePictureUrl').value = profile.pictureUrl;
+        document.getElementById('userName').value = profile.displayName;
+        document.getElementById('userDisplayName').textContent = profile.displayName;
+        document.getElementById('userProfilePic').src = profile.pictureUrl;
+        
+        // --- 3. สร้างค่าเริ่มต้นสำหรับฟอร์ม ---
+        document.getElementById('uuid').value = generateUUID();
+        document.getElementById('ticketId').value = generateTicketID();
+        const now = new Date();
+        document.getElementById('repairDate').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+        document.getElementById('repairTime').value = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
-            // --- เติมข้อมูลจาก LINE Profile (ค่าเริ่มต้น) ---
-            document.getElementById('lineUserId').value = profile.userId;
-            document.getElementById('lineDisplayName').value = profile.displayName;
-            document.getElementById('linePictureUrl').value = profile.pictureUrl;
-            document.getElementById('userName').value = profile.displayName; // << ใช้ชื่อ LINE เป็นค่าเริ่มต้น
-            // document.getElementById('userEmail').value = userEmail;
-            document.getElementById('displayUserEmail').value = userEmail;
-            document.getElementById('userDisplayName').textContent = profile.displayName;
-            document.getElementById('userProfilePic').src = profile.pictureUrl;
-            document.getElementById('uuid').value = generateUUID();
-            document.getElementById('ticketId').value = generateTicketID();
-            
-            const now = new Date();
-            document.getElementById('repairDate').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-            document.getElementById('repairTime').value = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-
+        // --- 4. ดึงข้อมูลเก่า (ถ้ามี) และแสดงผล ---
+        if(userEmail) { // ดึงข้อมูลเก่าก็ต่อเมื่อมีอีเมลแล้วเท่านั้น
             const [userDetails, equipmentHistory] = await Promise.all([
                 fetchFromApi('getUserByEmail', { email: userEmail }),
                 fetchFromApi('getEquipmentHistoryForUser', { email: userEmail })
             ]);
             
-            // --- ✨ ส่วนแก้ไข: ตรวจสอบและแสดงผลชื่อผู้แจ้งที่ลงทะเบียนไว้ ---
             if (userDetails) {
-                // ถ้าเจอผู้ใช้ในระบบ, ให้ใช้ชื่อที่ลงทะเบียนไว้ทับชื่อจาก LINE
                 if (userDetails.name) {
                     document.getElementById('userName').value = userDetails.name;
                 }
@@ -188,17 +192,17 @@
             } else {
                 equipmentSelect.innerHTML = '<option value="">ไม่พบประวัติ</option>';
             }
-            
-            loadingMessage.classList.add('hidden');
-            submitButton.disabled = false;
-
-        } catch (err) {
-            loadingMessage.textContent = 'เกิดข้อผิดพลาดในการโหลดข้อมูล';
-            Swal.fire({ icon: 'error', title: 'LIFF Error', text: `ไม่สามารถโหลดข้อมูลผู้ใช้จาก LINE ได้: ${err.message}` });
-            console.error("LIFF Error:", err);
         }
-    });
-    
+        
+        loadingMessage.classList.add('hidden');
+        submitButton.disabled = false;
+
+    } catch (err) {
+        loadingMessage.textContent = 'เกิดข้อผิดพลาดในการโหลดข้อมูล';
+        Swal.fire({ icon: 'error', title: 'LIFF Error', text: `ไม่สามารถโหลดข้อมูลผู้ใช้จาก LINE ได้: ${err.message}` });
+        console.error("LIFF Error:", err);
+    }
+});    
     // (ส่วนที่เหลือของ script คงเดิมทั้งหมด)
     document.getElementById('imageUpload').addEventListener('change', (event) => {
         const file = event.target.files[0];
