@@ -1,7 +1,7 @@
 <!-- from line richmenu 
 Endpoint_URL:https://thanonhari.github.io/30072568repair/
-LIFF_URL:https://liff.line.me/2007495650-QbyzOvv8 -->
-
+LIFF_URL:https://liff.line.me/2007495650-QbyzOvv8 
+06/08/2568 บางคนไม่มี email-->
 <!DOCTYPE html>
 <html lang="th">
 <head>
@@ -51,7 +51,14 @@ LIFF_URL:https://liff.line.me/2007495650-QbyzOvv8 -->
                             <h3 class="text-md font-medium text-gray-700 mb-2">ข้อมูลผู้แจ้ง (จาก LINE)</h3>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-3 bg-gray-100 rounded-md">
                                 <div><label for="userName" class="block text-sm font-medium text-gray-700">ชื่อ-นามสกุล <span class="text-red-500">*</span></label><input type="text" id="userName" name="userName" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md" required></div>
-                                <div><label class="block text-sm font-medium text-gray-500">อีเมล</label><input type="text" id="displayUserEmail" class="w-full mt-1 px-3 py-2 border-gray-200 rounded-md bg-gray-200" readonly></div>
+<!--                                 <div>
+                                    <label class="block text-sm font-medium text-gray-500">อีเมล</label>
+                                    <input type="text" id="displayUserEmail" class="w-full mt-1 px-3 py-2 border-gray-200 rounded-md bg-gray-200" readonly>
+                                </div> -->
+                                <div>
+    <label class="block text-sm font-medium text-gray-700">อีเมล <span id="emailRequired" class="text-red-500 hidden">*</span></label>
+    <input type="email" id="userEmailInput" name="userEmailInput" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-200" required>
+</div>
                             </div>
                         </div>
 
@@ -94,11 +101,10 @@ LIFF_URL:https://liff.line.me/2007495650-QbyzOvv8 -->
     </div>
 
     <script>
-    const LIFF_ID = "2007495650-QbyzOvv8"; // <-- LIFF ID ของคุณ
-    // --- ✨✨ วาง URL ใหม่ล่าสุดที่ได้จากขั้นตอนที่ 1 ที่นี่ ✨✨ ---
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz66PYmDzmQpKRnH-PmFvRZMovRVDcWspRqDjIrKRirizgPx0PyvzAiTSk1ZCP4t_UvKw/exec"; 
+        const LIFF_ID = "2007495650-QbyzOvv8"; // <<<< 1. วาง LIFF ID ของคุณที่นี่
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxaJ72DPlpHP_bRAmJ9zk8G1UKqZH5ht7O8ggACvHc-N39lK7d2kM2758oT1cnUJT24-A/exec"; // <<<< 2. วาง URL ของ Web App ที่ Deploy แล้วที่นี่
 
-    let imageBase64 = "", imageFileName = "", imageMimeType = "";
+        let imageBase64 = "", imageFileName = "", imageMimeType = "";
 
     function generateUUID() { return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => { const r = (Math.random() * 16) | 0, v = c === "x" ? r : (r & 0x3) | 0x8; return v.toString(16); }); }
     function generateTicketID() { const d=new Date(); return `REP${d.getFullYear().toString().substr(-2)}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}-${Math.floor(Math.random()*10000).toString().padStart(4,"0")}`; }
@@ -121,20 +127,35 @@ LIFF_URL:https://liff.line.me/2007495650-QbyzOvv8 -->
             await liff.init({ liffId: LIFF_ID });
             if (!liff.isLoggedIn()) { liff.login({ redirectUri: window.location.href }); return; }
             
-            const [profile, decodedToken] = await Promise.all([liff.getProfile(), liff.getDecodedIDToken()]);
-            const userEmail = decodedToken.email;
+                const [profile, decodedToken] = await Promise.all([liff.getProfile(), liff.getDecodedIDToken()]);
+                let userEmail = decodedToken.email; // ✨ เปลี่ยนจาก const เป็น let
 
-            if (!userEmail) {
-                Swal.fire({ icon: 'error', title: 'ไม่สามารถดึงอีเมลได้', text: 'กรุณาเปิดสิทธิ์ "email" ใน LINE Developers Console และกดยินยอมในหน้าจอขอสิทธิ์' });
-                return;
-            }
+                if (userEmail) {
+                    // กรณีดึงอีเมลจาก LINE ได้ (ทำงานเหมือนเดิม)
+                    userEmailInput.value = userEmail;
+                    userEmailInput.readOnly = true;
+                    document.getElementById('userEmail').value = userEmail;
+                } else {
+                    // กรณีดึงอีเมลจาก LINE ไม่ได้ (Logic ใหม่)
+                    userEmailInput.value = "";
+                    userEmailInput.readOnly = false; // ทำให้แก้ไขได้
+                    userEmailInput.placeholder = "กรุณากรอกอีเมลที่ติดต่อได้";
+                    userEmailInput.classList.remove('bg-gray-200'); // เอารูปแบบ readonly ออก
+                    emailRequiredSpan.classList.remove('hidden'); // แสดงเครื่องหมาย *
+                
+                    // เมื่อมีการพิมพ์ในช่องอีเมล ให้ไปอัปเดต hidden input ด้วย
+                    userEmailInput.addEventListener('input', (e) => {
+                        document.getElementById('userEmail').value = e.target.value;
+                    });
+                }
+                // --- ✨ สิ้นสุดส่วนที่เพิ่ม ---
 
-            // เติมข้อมูลจาก LINE Profile
+            // --- เติมข้อมูลจาก LINE Profile (ค่าเริ่มต้น) ---
             document.getElementById('lineUserId').value = profile.userId;
             document.getElementById('lineDisplayName').value = profile.displayName;
             document.getElementById('linePictureUrl').value = profile.pictureUrl;
-            document.getElementById('userName').value = profile.displayName;
-            document.getElementById('userEmail').value = userEmail;
+            document.getElementById('userName').value = profile.displayName; // << ใช้ชื่อ LINE เป็นค่าเริ่มต้น
+            // document.getElementById('userEmail').value = userEmail;
             document.getElementById('displayUserEmail').value = userEmail;
             document.getElementById('userDisplayName').textContent = profile.displayName;
             document.getElementById('userProfilePic').src = profile.pictureUrl;
@@ -145,13 +166,14 @@ LIFF_URL:https://liff.line.me/2007495650-QbyzOvv8 -->
             document.getElementById('repairDate').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
             document.getElementById('repairTime').value = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
-            // ดึงข้อมูลผู้ใช้และประวัติจาก Backend
             const [userDetails, equipmentHistory] = await Promise.all([
                 fetchFromApi('getUserByEmail', { email: userEmail }),
                 fetchFromApi('getEquipmentHistoryForUser', { email: userEmail })
             ]);
             
+            // --- ✨ ส่วนแก้ไข: ตรวจสอบและแสดงผลชื่อผู้แจ้งที่ลงทะเบียนไว้ ---
             if (userDetails) {
+                // ถ้าเจอผู้ใช้ในระบบ, ให้ใช้ชื่อที่ลงทะเบียนไว้ทับชื่อจาก LINE
                 if (userDetails.name) {
                     document.getElementById('userName').value = userDetails.name;
                 }
@@ -176,12 +198,12 @@ LIFF_URL:https://liff.line.me/2007495650-QbyzOvv8 -->
 
         } catch (err) {
             loadingMessage.textContent = 'เกิดข้อผิดพลาดในการโหลดข้อมูล';
-            Swal.fire({ icon: 'error', title: 'LIFF Error', text: `ไม่สามารถโหลดข้อมูลผู้ใช้ได้: ${err.message}` });
+            Swal.fire({ icon: 'error', title: 'LIFF Error', text: `ไม่สามารถโหลดข้อมูลผู้ใช้จาก LINE ได้: ${err.message}` });
             console.error("LIFF Error:", err);
         }
     });
     
-    // ส่วน Event Listeners อื่นๆ (เหมือนเดิม)
+    // (ส่วนที่เหลือของ script คงเดิมทั้งหมด)
     document.getElementById('imageUpload').addEventListener('change', (event) => {
         const file = event.target.files[0];
         if (!file) return;
@@ -190,10 +212,10 @@ LIFF_URL:https://liff.line.me/2007495650-QbyzOvv8 -->
             document.getElementById('imagePreview').src = e.target.result;
             document.getElementById('imagePreview').classList.remove('hidden');
             imageBase64 = e.target.result.split(',')[1];
-            imageFileName = file.name;
-            imageMimeType = file.type;
         };
         reader.readAsDataURL(file);
+        imageFileName = file.name;
+        imageMimeType = file.type;
     });
 
     document.getElementById('equipmentHistory').addEventListener('change', (e) => {
@@ -205,7 +227,6 @@ LIFF_URL:https://liff.line.me/2007495650-QbyzOvv8 -->
 
     document.getElementById('repairForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const submitButton = document.getElementById('submitButton');
         if (submitButton.disabled) return;
         if (!document.getElementById('pdpaConsent').checked) {
             Swal.fire({ icon: "warning", title: "กรุณายอมรับเงื่อนไข", text: "คุณต้องยอมรับเงื่อนไขการให้บริการฯ ก่อน" });
@@ -230,7 +251,7 @@ LIFF_URL:https://liff.line.me/2007495650-QbyzOvv8 -->
             const response = await fetch(SCRIPT_URL, { method: 'POST', body: params });
             const result = await response.json();
             if (result.result === 'success') {
-                await Swal.fire({ icon: 'success', title: 'ส่งเรื่องแจ้งซ่อมสำเร็จ!', text: `รหัสใบแจ้งซ่อมของคุณคือ ${result.ticketId}` });
+                await Swal.fire({ icon: 'success', title: 'ส่งเรื่องแจ้งซ่อมสำเร็จ!' });
                 if (liff.isInClient()) liff.closeWindow();
             } else {
                 throw new Error(result.message || 'ไม่สามารถบันทึกข้อมูลได้');
@@ -241,6 +262,6 @@ LIFF_URL:https://liff.line.me/2007495650-QbyzOvv8 -->
             submitButton.disabled = false;
         }
     });
-</script>
+    </script>
 </body>
 </html>
