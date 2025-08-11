@@ -1,6 +1,7 @@
 <!-- from line richmenu 
 Endpoint_URL:https://thanonhari.github.io/30072568repair/
-LIFF_URL:https://liff.line.me/2007495650-QbyzOvv8 -->
+LIFF_URL:https://liff.line.me/2007495650-QbyzOvv8 
+แก้ไขวันที่ 11/082568 save from on to TRUE from line liff-->
 
 <!DOCTYPE html>
 <html lang="th">
@@ -95,7 +96,7 @@ LIFF_URL:https://liff.line.me/2007495650-QbyzOvv8 -->
 
     <script>
         const LIFF_ID = "2007495650-QbyzOvv8"; // <<<< 1. วาง LIFF ID ของคุณที่นี่
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwrNjRB3d4PJBad_Zl5ZicSP2GrSCleOf7zA0wbdgdW6DbtxR0ieOE8KKjR8r-Il2sjwQ/exec"; // <<<< 2. วาง URL ของ Web App ที่ Deploy แล้วที่นี่
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwsYN_GEWfDaBfYPWdD7EK-J0F6oOL1B-xtXL0SUmasiFTjF5zZjDsd1gK2MvfQglVVNg/exec"; // <<<< 2. วาง URL ของ Web App ที่ Deploy แล้วที่นี่
 
         let imageBase64 = "", imageFileName = "", imageMimeType = "";
 
@@ -214,17 +215,45 @@ LIFF_URL:https://liff.line.me/2007495650-QbyzOvv8 -->
         submitButton.disabled = true;
         Swal.fire({ title: "กำลังส่งข้อมูล...", allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-        const formData = new FormData(e.target);
-        const params = new URLSearchParams();
-        for(const pair of formData.entries()) { params.append(pair[0], pair[1]); }
-        
-        if (imageBase64) {
-            params.append('imageBase64', imageBase64);
-            params.append('imageName', imageFileName);
-            params.append('imageMimeType', imageMimeType);
-        }
-        params.append('role', 'User');
+// --- ✨ ส่วนที่แก้ไข เริ่มต้นที่นี่ ✨ ---
 
+        // 1. สร้าง Object เพื่อรวบรวมข้อมูลจากฟอร์มด้วยตัวเอง
+        const formDataObject = {
+            lineUserId: document.getElementById('lineUserId').value,
+            lineDisplayName: document.getElementById('lineDisplayName').value,
+            linePictureUrl: document.getElementById('linePictureUrl').value,
+            userEmail: document.getElementById('userEmail').value,
+            uuid: document.getElementById('uuid').value,
+            ticketId: document.getElementById('ticketId').value,
+            repairDate: document.getElementById('repairDate').value,
+            repairTime: document.getElementById('repairTime').value,
+            userName: document.getElementById('userName').value,
+            userPosition: document.getElementById('userPosition').value,
+            userDepartment: document.getElementById('userDepartment').value,
+            userPhone: document.getElementById('userPhone').value,
+            userLocation: document.getElementById('userLocation').value,
+            equipmentName: document.getElementById('equipmentName').value,
+            equipmentId: document.getElementById('equipmentId').value,
+            problemDesc: document.getElementById('problemDesc').value,
+            // 2. อ่านค่าจาก checkbox โดยตรง จะได้ค่าเป็น true/false
+            pdpaConsent: document.getElementById('pdpaConsent').checked,
+            role: 'User' // กำหนด role
+        };
+
+        // 3. เพิ่มข้อมูลรูปภาพ (ถ้ามี)
+        if (imageBase64) {
+            formDataObject.imageBase64 = imageBase64;
+            formDataObject.imageName = imageFileName;
+            formDataObject.imageMimeType = imageMimeType;
+        }
+
+        // 4. แปลง Object เป็น URLSearchParams เพื่อส่งข้อมูล
+        const params = new URLSearchParams();
+        for (const key in formDataObject) {
+            params.append(key, formDataObject[key]);
+        }
+        
+        // --- ✨ สิ้นสุดส่วนที่แก้ไข ---
         try {
             const response = await fetch(SCRIPT_URL, { method: 'POST', body: params });
             const result = await response.json();
