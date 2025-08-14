@@ -291,6 +291,19 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwFrASmRlRDtOaAH2oHI
             submitButton.disabled = false;
         }
     });
+        // ✨ (ใหม่) ฟังก์ชันสำหรับทดสอบการเชื่อมต่อ
+    async function testConnection() {
+        console.log("Testing connection to:", SCRIPT_URL);
+        try {
+            const response = await fetch(`${SCRIPT_URL}?action=test`);
+            const data = await response.json();
+            console.log("Test Response:", data);
+            alert("Connection Test Result: " + data.message);
+        } catch (error) {
+            console.error("Test Failed:", error);
+            alert("Connection Test FAILED. Check the console for details.");
+        }
+    }
     </script>
 </body>
 </html>
