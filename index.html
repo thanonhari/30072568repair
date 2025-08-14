@@ -1,6 +1,9 @@
 <!-- from line richmenu 
 Endpoint_URL:https://thanonhari.github.io/30072568repair/
 LIFF_URL:https://liff.line.me/2007495650-QbyzOvv8 
+const LIFF_ID = "2007495650-QbyzOvv8"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwFrASmRlRDtOaAH2oHIs-wgBfUUlO2X_Gg3IQ5dTg0KMqIjN-tP5zqSRDGomqW7UPn/exec"; 
+ใช้งานได้ ก่อนวันที่ 14/08/2568 App ที่ Deploy แล้วที่นี่
 แก้ไขวันที่ 11/082568 save from on to TRUE from line liff-->
 
 <!DOCTYPE html>
@@ -95,24 +98,34 @@ LIFF_URL:https://liff.line.me/2007495650-QbyzOvv8
     </div>
 
     <script>
-        const LIFF_ID = "2007495650-QbyzOvv8"; // <<<< 1. วาง LIFF ID ของคุณที่นี่
-        // const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwFrASmRlRDtOaAH2oHIs-wgBfUUlO2X_Gg3IQ5dTg0KMqIjN-tP5zqSRDGomqW7UPn/exec"; // <<<< 2. วาง URL ของ Web App ที่ Deploy แล้วที่นี่
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw5NwItQTu34bX0GzlGS-UHDDT3AmK_hhKlB7odPqDgB3x01TK0Yt7ZYjE1EzECP8qr/exec";
+    const LIFF_ID = "2007495650-QbyzOvv8"; // <<<< 1. วาง LIFF ID ของคุณที่นี่
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwFrASmRlRDtOaAH2oHIs-wgBfUUlO2X_Gg3IQ5dTg0KMqIjN-tP5zqSRDGomqW7UPn/exec"; // <<<< 2. วาง URL ของ Web App ที่ Deploy แล้วที่นี่
 
-        let imageBase64 = "", imageFileName = "", imageMimeType = "";
+    let imageBase64 = "", imageFileName = "", imageMimeType = "";
 
     function generateUUID() { return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => { const r = (Math.random() * 16) | 0, v = c === "x" ? r : (r & 0x3) | 0x8; return v.toString(16); }); }
     function generateTicketID() { const d=new Date(); return `REP${d.getFullYear().toString().substr(-2)}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}-${Math.floor(Math.random()*10000).toString().padStart(4,"0")}`; }
     
+    // ✨ (ปรับปรุง) ฟังก์ชันเรียก API ให้รองรับ Error Handling ที่ดีขึ้น
     async function fetchFromApi(action, params = {}) {
         const url = new URL(SCRIPT_URL);
         url.searchParams.append('action', action);
         for (const key in params) { url.searchParams.append(key, params[key]); }
+        
         const response = await fetch(url);
-        if (!response.ok) throw new Error(`API call failed for action: ${action}`);
-        return response.json();
+
+        if (!response.ok) {
+            throw new Error(`API call failed for action '${action}' with status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if(data.error) {
+            throw new Error(`API returned an error for action '${action}': ${data.error}`);
+        }
+        return data;
     }
 
+    // ✨ (ปรับปรุง) แก้ไข Flow การโหลดข้อมูลให้จัดการข้อผิดพลาดได้ละเอียดขึ้น
     document.addEventListener('DOMContentLoaded', async () => {
         const submitButton = document.getElementById('submitButton');
         const loadingMessage = document.getElementById('loadingMessage');
@@ -120,9 +133,14 @@ LIFF_URL:https://liff.line.me/2007495650-QbyzOvv8
 
         try {
             await liff.init({ liffId: LIFF_ID });
-            if (!liff.isLoggedIn()) { liff.login({ redirectUri: window.location.href }); return; }
+            if (!liff.isLoggedIn()) {
+                liff.login({ redirectUri: window.location.href });
+                return;
+            }
             
-            const [profile, decodedToken] = await Promise.all([liff.getProfile(), liff.getDecodedIDToken()]);
+            loadingMessage.textContent = 'กำลังโหลดข้อมูลโปรไฟล์ LINE...';
+            const profile = await liff.getProfile();
+            const decodedToken = await liff.getDecodedIDToken();
             const userEmail = decodedToken.email;
 
             if (!userEmail) {
@@ -130,11 +148,11 @@ LIFF_URL:https://liff.line.me/2007495650-QbyzOvv8
                 return;
             }
 
-            // --- เติมข้อมูลจาก LINE Profile (ค่าเริ่มต้น) ---
+            // --- เติมข้อมูลจาก LINE Profile ---
             document.getElementById('lineUserId').value = profile.userId;
             document.getElementById('lineDisplayName').value = profile.displayName;
             document.getElementById('linePictureUrl').value = profile.pictureUrl;
-            document.getElementById('userName').value = profile.displayName; // << ใช้ชื่อ LINE เป็นค่าเริ่มต้น
+            document.getElementById('userName').value = profile.displayName;
             document.getElementById('userEmail').value = userEmail;
             document.getElementById('displayUserEmail').value = userEmail;
             document.getElementById('userDisplayName').textContent = profile.displayName;
@@ -146,23 +164,21 @@ LIFF_URL:https://liff.line.me/2007495650-QbyzOvv8
             document.getElementById('repairDate').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
             document.getElementById('repairTime').value = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
-            const [userDetails, equipmentHistory] = await Promise.all([
-                fetchFromApi('getUserByEmail', { email: userEmail }),
-                fetchFromApi('getEquipmentHistoryForUser', { email: userEmail })
-            ]);
+            // --- โหลดข้อมูลจาก Backend ทีละส่วนเพื่อหาข้อผิดพลาด ---
+            loadingMessage.textContent = 'กำลังโหลดข้อมูลผู้ใช้จากระบบ...';
+            const userDetails = await fetchFromApi('getUserByEmail', { email: userEmail });
             
-            // --- ✨ ส่วนแก้ไข: ตรวจสอบและแสดงผลชื่อผู้แจ้งที่ลงทะเบียนไว้ ---
             if (userDetails) {
-                // ถ้าเจอผู้ใช้ในระบบ, ให้ใช้ชื่อที่ลงทะเบียนไว้ทับชื่อจาก LINE
-                if (userDetails.name) {
-                    document.getElementById('userName').value = userDetails.name;
-                }
+                if (userDetails.name) document.getElementById('userName').value = userDetails.name;
                 document.getElementById('userPosition').value = userDetails.position || '';
                 document.getElementById('userDepartment').value = userDetails.department || '';
                 document.getElementById('userPhone').value = userDetails.phone || '';
                 document.getElementById('userLocation').value = userDetails.location || '';
                 if (userDetails.uuid) document.getElementById('uuid').value = userDetails.uuid;
             }
+
+            loadingMessage.textContent = 'กำลังโหลดประวัติการแจ้งซ่อม...';
+            const equipmentHistory = await fetchFromApi('getEquipmentHistoryForUser', { email: userEmail });
             
             const equipmentSelect = document.getElementById('equipmentHistory');
             if (equipmentHistory && equipmentHistory.length > 0) {
@@ -177,9 +193,14 @@ LIFF_URL:https://liff.line.me/2007495650-QbyzOvv8
             submitButton.disabled = false;
 
         } catch (err) {
+            console.error("Initialization Error:", err);
             loadingMessage.textContent = 'เกิดข้อผิดพลาดในการโหลดข้อมูล';
-            Swal.fire({ icon: 'error', title: 'LIFF Error', text: `ไม่สามารถโหลดข้อมูลผู้ใช้จาก LINE ได้: ${err.message}` });
-            console.error("LIFF Error:", err);
+            // แสดงข้อความละเอียดขึ้น
+            Swal.fire({ 
+                icon: 'error', 
+                title: 'เกิดข้อผิดพลาด', 
+                text: `ไม่สามารถโหลดข้อมูลได้: ${err.message}` 
+            });
         }
     });
     
