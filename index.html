@@ -99,7 +99,7 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwFrASmRlRDtOaAH2oHI
 
     <script>
     const LIFF_ID = "2007495650-QbyzOvv8"; // <<<< 1. วาง LIFF ID ของคุณที่นี่
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzGl2KeHJIBy6vuy8c82bZrxH1G0AmrJTI2nG3g0EjeTej98HKsoCanBgeGoTnonPFbFw/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz-9J_StzFnZW-tbGnzXusTU7j6HTwPgyijsO1xYT7GtoPPKbwFQG4-S_moEMrAaSHFrw/exec";
 
     let imageBase64 = "", imageFileName = "", imageMimeType = "";
 
@@ -167,8 +167,10 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwFrASmRlRDtOaAH2oHI
             // --- โหลดข้อมูลจาก Backend ทีละส่วนเพื่อหาข้อผิดพลาด ---
             loadingMessage.textContent = 'กำลังโหลดข้อมูลผู้ใช้จากระบบ...';
             const userDetails = await fetchFromApi('getUserByEmail', { email: userEmail });
+
             
-            if (userDetails) {
+            // แก้ไขเงื่อนไขให้ตรวจสอบว่า userDetails ไม่ใช่ null และมี property อยู่จริง
+            if (userDetails && Object.keys(userDetails).length > 0) {
                 if (userDetails.name) document.getElementById('userName').value = userDetails.name;
                 document.getElementById('userPosition').value = userDetails.position || '';
                 document.getElementById('userDepartment').value = userDetails.department || '';
