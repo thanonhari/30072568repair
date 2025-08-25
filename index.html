@@ -272,11 +272,18 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwFrASmRlRDtOaAH2oHI
         }
 
         // 4. แปลง Object เป็น URLSearchParams เพื่อส่งข้อมูล
-        const params = new URLSearchParams();
-        for (const key in formDataObject) {
-            params.append(key, formDataObject[key]);
-        }
-        
+        // const params = new URLSearchParams();
+        // for (const key in formDataObject) {
+        //     params.append(key, formDataObject[key]);
+        // }
+
+        // 4. แปลง Object เป็น URLSearchParams เพื่อส่งข้อมูล
+            const params = new URLSearchParams();
+            params.append('action', 'submitRepair'); // ✅ เพิ่ม action ให้ GAS รู้ว่าเป็น submitRepair
+            for (const key in formDataObject) {
+                params.append(key, formDataObject[key]);
+            }
+
         // --- ✨ สิ้นสุดส่วนที่แก้ไข ---
         try {
             const response = await fetch(SCRIPT_URL, { method: 'POST', body: params });
