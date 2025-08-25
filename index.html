@@ -28,7 +28,7 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwFrASmRlRDtOaAH2oHI
                 <div id="userMenu" class="relative">
                     <button onclick="document.getElementById('userMenuDropdown').classList.toggle('hidden')" class="flex items-center space-x-2">
                         <img id="userProfilePic" class="w-8 h-8 rounded-full bg-yellow-400">
-                        <span id="userDisplayName" class.text-sm font-medium">Loading...</span>
+                       <span id="userDisplayName" class="text-sm font-medium">Loading...</span>
                     </button>
                     <div id="userMenuDropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 hidden">
                         <a href="#" onclick="if(liff.isLoggedIn()) { liff.logout(); } liff.closeWindow();" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">ออกจากระบบ</a>
@@ -98,221 +98,211 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwFrASmRlRDtOaAH2oHI
     </div>
 
     <script>
-    const LIFF_ID = "2007495650-QbyzOvv8"; // <<<< 1. วาง LIFF ID ของคุณที่นี่
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby02fO2_GgLEWJif2dYzF9wKK1f9SDiRxXGPuCshwIdwx-e4MZj2227RZ8-fSJCZm46GQ/exec";
+  const LIFF_ID = "2007495650-QbyzOvv8";
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby02fO2_GgLEWJif2dYzF9wKK1f9SDiRxXGPuCshwIdwx-e4MZj2227RZ8-fSJCZm46GQ/exec";
 
-    let imageBase64 = "", imageFileName = "", imageMimeType = "";
+  let imageBase64 = "", imageFileName = "", imageMimeType = "";
 
-    function generateUUID() { return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => { const r = (Math.random() * 16) | 0, v = c === "x" ? r : (r & 0x3) | 0x8; return v.toString(16); }); }
-    function generateTicketID() { const d=new Date(); return `REP${d.getFullYear().toString().substr(-2)}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}-${Math.floor(Math.random()*10000).toString().padStart(4,"0")}`; }
-    
-    // ✨ (ปรับปรุง) ฟังก์ชันเรียก API ให้รองรับ Error Handling ที่ดีขึ้น
-    async function fetchFromApi(action, params = {}) {
-        const url = new URL(SCRIPT_URL);
-        url.searchParams.append('action', action);
-        for (const key in params) { url.searchParams.append(key, params[key]); }
-        
-        const response = await fetch(url);
+  function generateUUID() {
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+      const r = (Math.random() * 16) | 0, v = c === "x" ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
+  function generateTicketID() {
+    const d = new Date();
+    return `REP${d.getFullYear().toString().slice(-2)}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}-${Math.floor(Math.random()*10000).toString().padStart(4,"0")}`;
+  }
 
-        if (!response.ok) {
-            throw new Error(`API call failed for action '${action}' with status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        if(data.error) {
-            throw new Error(`API returned an error for action '${action}': ${data.error}`);
-        }
-        return data;
+  // เรียก API แบบ GET พร้อม error handling
+  async function fetchFromApi(action, params = {}) {
+    const url = new URL(SCRIPT_URL);
+    url.searchParams.append('action', action);
+    for (const k in params) url.searchParams.append(k, params[k]);
+
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`API '${action}' status ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data;
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const loadingMessage = document.getElementById('loadingMessage');
+
+    try {
+      await liff.init({ liffId: LIFF_ID });
+      if (!liff.isLoggedIn()) {
+        liff.login({ redirectUri: window.location.href });
+        return;
+      }
+
+      loadingMessage.textContent = 'กำลังโหลดข้อมูลโปรไฟล์ LINE...';
+      const profile = await liff.getProfile();
+      const decodedToken = await liff.getDecodedIDToken();
+      const userEmail = decodedToken?.email;
+
+      if (!userEmail) {
+        Swal.fire({
+          icon: 'error',
+          title: 'ไม่สามารถดึงอีเมลได้',
+          text: 'กรุณาเปิดสิทธิ์ "email" ใน LINE Developers Console และกดยินยอมในหน้าจอขอสิทธิ์'
+        });
+        return;
+      }
+
+      // เติมข้อมูลจาก LINE Profile
+      document.getElementById('lineUserId').value = profile.userId;
+      document.getElementById('lineDisplayName').value = profile.displayName;
+      document.getElementById('linePictureUrl').value = profile.pictureUrl || '';
+      document.getElementById('userName').value = profile.displayName;
+      document.getElementById('userEmail').value = userEmail;
+      document.getElementById('displayUserEmail').value = userEmail;
+      document.getElementById('userDisplayName').textContent = profile.displayName;
+      if (profile.pictureUrl) document.getElementById('userProfilePic').src = profile.pictureUrl;
+
+      document.getElementById('uuid').value = generateUUID();
+      document.getElementById('ticketId').value = generateTicketID();
+
+      const now = new Date();
+      document.getElementById('repairDate').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+      document.getElementById('repairTime').value = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+
+      // ดึงรายละเอียดผู้ใช้จาก backend
+      loadingMessage.textContent = 'กำลังโหลดข้อมูลผู้ใช้จากระบบ...';
+      const userDetails = await fetchFromApi('getUserByEmail', { email: userEmail });
+
+      if (userDetails && Object.keys(userDetails).length > 0) {
+        if (userDetails.name) document.getElementById('userName').value = userDetails.name;
+        document.getElementById('userPosition').value = userDetails.position || '';
+        document.getElementById('userDepartment').value = userDetails.department || '';
+        document.getElementById('userPhone').value = userDetails.phone || '';
+        document.getElementById('userLocation').value = userDetails.location || '';
+        if (userDetails.uuid) document.getElementById('uuid').value = userDetails.uuid;
+      }
+
+      // โหลดประวัติครุภัณฑ์
+      loadingMessage.textContent = 'กำลังโหลดประวัติการแจ้งซ่อม...';
+      const equipmentHistory = await fetchFromApi('getEquipmentHistoryForUser', { email: userEmail });
+
+      const equipmentSelect = document.getElementById('equipmentHistory');
+      if (equipmentHistory && equipmentHistory.length > 0) {
+        equipmentSelect.innerHTML = '<option value="">-- เลือกจากประวัติ --</option>';
+        equipmentHistory.forEach(eq => equipmentSelect.add(new Option(`${eq.name} (${eq.id})`, JSON.stringify(eq))));
+        equipmentSelect.disabled = false;
+      } else {
+        equipmentSelect.innerHTML = '<option value="">ไม่พบประวัติ</option>';
+      }
+
+      loadingMessage.classList.add('hidden');
+
+    } catch (err) {
+      console.error("Initialization Error:", err);
+      loadingMessage.textContent = 'เกิดข้อผิดพลาดในการโหลดข้อมูล';
+      Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: `ไม่สามารถโหลดข้อมูลได้: ${err.message}` });
+    }
+  });
+
+  // อัปโหลดรูป (ถ้ามี)
+  document.getElementById('imageUpload').addEventListener('change', (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      document.getElementById('imagePreview').src = e.target.result;
+      document.getElementById('imagePreview').classList.remove('hidden');
+      imageBase64 = e.target.result.split(',')[1];
+    };
+    reader.readAsDataURL(file);
+    imageFileName = file.name;
+    imageMimeType = file.type;
+  });
+
+  // เติมค่าจากประวัติครุภัณฑ์
+  document.getElementById('equipmentHistory').addEventListener('change', (e) => {
+    if (!e.target.value) return;
+    const eq = JSON.parse(e.target.value);
+    document.getElementById('equipmentName').value = eq.name || '';
+    document.getElementById('equipmentId').value = eq.id || '';
+  });
+
+  // ส่งฟอร์มแจ้งซ่อม
+  document.getElementById('repairForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    // ⚠️ หยิบปุ่มใหม่ใน scope นี้ทุกครั้ง (กัน ReferenceError)
+    const submitButton = document.getElementById('submitButton');
+    if (submitButton.disabled) return;
+
+    if (!document.getElementById('pdpaConsent').checked) {
+      Swal.fire({ icon: "warning", title: "กรุณายอมรับเงื่อนไข", text: "คุณต้องยอมรับเงื่อนไขการให้บริการฯ ก่อน" });
+      return;
     }
 
-    // ✨ (ปรับปรุง) แก้ไข Flow การโหลดข้อมูลให้จัดการข้อผิดพลาดได้ละเอียดขึ้น
-    document.addEventListener('DOMContentLoaded', async () => {
-        const submitButton = document.getElementById('submitButton');
-        const loadingMessage = document.getElementById('loadingMessage');
-        submitButton.disabled = true;
+    submitButton.disabled = true;
+    Swal.fire({ title: "กำลังส่งข้อมูล...", allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-        try {
-            await liff.init({ liffId: LIFF_ID });
-            if (!liff.isLoggedIn()) {
-                liff.login({ redirectUri: window.location.href });
-                return;
-            }
-            
-            loadingMessage.textContent = 'กำลังโหลดข้อมูลโปรไฟล์ LINE...';
-            const profile = await liff.getProfile();
-            const decodedToken = await liff.getDecodedIDToken();
-            const userEmail = decodedToken.email;
-
-            if (!userEmail) {
-                Swal.fire({ icon: 'error', title: 'ไม่สามารถดึงอีเมลได้', text: 'กรุณาเปิดสิทธิ์ "email" ใน LINE Developers Console และกดยินยอมในหน้าจอขอสิทธิ์' });
-                return;
-            }
-
-            // --- เติมข้อมูลจาก LINE Profile ---
-            document.getElementById('lineUserId').value = profile.userId;
-            document.getElementById('lineDisplayName').value = profile.displayName;
-            document.getElementById('linePictureUrl').value = profile.pictureUrl;
-            document.getElementById('userName').value = profile.displayName;
-            document.getElementById('userEmail').value = userEmail;
-            document.getElementById('displayUserEmail').value = userEmail;
-            document.getElementById('userDisplayName').textContent = profile.displayName;
-            document.getElementById('userProfilePic').src = profile.pictureUrl;
-            document.getElementById('uuid').value = generateUUID();
-            document.getElementById('ticketId').value = generateTicketID();
-            
-            const now = new Date();
-            document.getElementById('repairDate').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-            document.getElementById('repairTime').value = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-
-            // --- โหลดข้อมูลจาก Backend ทีละส่วนเพื่อหาข้อผิดพลาด ---
-            loadingMessage.textContent = 'กำลังโหลดข้อมูลผู้ใช้จากระบบ...';
-            const userDetails = await fetchFromApi('getUserByEmail', { email: userEmail });
-
-            
-            // แก้ไขเงื่อนไขให้ตรวจสอบว่า userDetails ไม่ใช่ null และมี property อยู่จริง
-            if (userDetails && Object.keys(userDetails).length > 0) {
-                if (userDetails.name) document.getElementById('userName').value = userDetails.name;
-                document.getElementById('userPosition').value = userDetails.position || '';
-                document.getElementById('userDepartment').value = userDetails.department || '';
-                document.getElementById('userPhone').value = userDetails.phone || '';
-                document.getElementById('userLocation').value = userDetails.location || '';
-                if (userDetails.uuid) document.getElementById('uuid').value = userDetails.uuid;
-            }
-
-            loadingMessage.textContent = 'กำลังโหลดประวัติการแจ้งซ่อม...';
-            const equipmentHistory = await fetchFromApi('getEquipmentHistoryForUser', { email: userEmail });
-            
-            const equipmentSelect = document.getElementById('equipmentHistory');
-            if (equipmentHistory && equipmentHistory.length > 0) {
-                equipmentSelect.innerHTML = '<option value="">-- เลือกจากประวัติ --</option>'; 
-                equipmentHistory.forEach(eq => equipmentSelect.add(new Option(`${eq.name} (${eq.id})`, JSON.stringify(eq))));
-                equipmentSelect.disabled = false;
-            } else {
-                equipmentSelect.innerHTML = '<option value="">ไม่พบประวัติ</option>';
-            }
-            
-            loadingMessage.classList.add('hidden');
-            submitButton.disabled = false;
-
-        } catch (err) {
-            console.error("Initialization Error:", err);
-            loadingMessage.textContent = 'เกิดข้อผิดพลาดในการโหลดข้อมูล';
-            // แสดงข้อความละเอียดขึ้น
-            Swal.fire({ 
-                icon: 'error', 
-                title: 'เกิดข้อผิดพลาด', 
-                text: `ไม่สามารถโหลดข้อมูลได้: ${err.message}` 
-            });
-        }
-    });
-    
-    // (ส่วนที่เหลือของ script คงเดิมทั้งหมด)
-    document.getElementById('imageUpload').addEventListener('change', (event) => {
-        const file = event.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = e => { 
-            document.getElementById('imagePreview').src = e.target.result;
-            document.getElementById('imagePreview').classList.remove('hidden');
-            imageBase64 = e.target.result.split(',')[1];
-        };
-        reader.readAsDataURL(file);
-        imageFileName = file.name;
-        imageMimeType = file.type;
-    });
-
-    document.getElementById('equipmentHistory').addEventListener('change', (e) => {
-        if (!e.target.value) return;
-        const eq = JSON.parse(e.target.value);
-        document.getElementById('equipmentName').value = eq.name || '';
-        document.getElementById('equipmentId').value = eq.id || '';
-    });
-
-    document.getElementById('repairForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (submitButton.disabled) return;
-        if (!document.getElementById('pdpaConsent').checked) {
-            Swal.fire({ icon: "warning", title: "กรุณายอมรับเงื่อนไข", text: "คุณต้องยอมรับเงื่อนไขการให้บริการฯ ก่อน" });
-            return;
-        }
-
-        submitButton.disabled = true;
-        Swal.fire({ title: "กำลังส่งข้อมูล...", allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-
-// --- ✨ ส่วนที่แก้ไข เริ่มต้นที่นี่ ✨ ---
-
-        // 1. สร้าง Object เพื่อรวบรวมข้อมูลจากฟอร์มด้วยตัวเอง
-        const formDataObject = {
-            lineUserId: document.getElementById('lineUserId').value,
-            lineDisplayName: document.getElementById('lineDisplayName').value,
-            linePictureUrl: document.getElementById('linePictureUrl').value,
-            userEmail: document.getElementById('userEmail').value,
-            uuid: document.getElementById('uuid').value,
-            ticketId: document.getElementById('ticketId').value,
-            repairDate: document.getElementById('repairDate').value,
-            repairTime: document.getElementById('repairTime').value,
-            userName: document.getElementById('userName').value,
-            userPosition: document.getElementById('userPosition').value,
-            userDepartment: document.getElementById('userDepartment').value,
-            userPhone: document.getElementById('userPhone').value,
-            userLocation: document.getElementById('userLocation').value,
-            equipmentName: document.getElementById('equipmentName').value,
-            equipmentId: document.getElementById('equipmentId').value,
-            problemDesc: document.getElementById('problemDesc').value,
-            // 2. อ่านค่าจาก checkbox โดยตรง จะได้ค่าเป็น true/false
-            pdpaConsent: document.getElementById('pdpaConsent').checked,
-            role: 'User' // กำหนด role
-        };
-
-        // 3. เพิ่มข้อมูลรูปภาพ (ถ้ามี)
-        if (imageBase64) {
-            formDataObject.imageBase64 = imageBase64;
-            formDataObject.imageName = imageFileName;
-            formDataObject.imageMimeType = imageMimeType;
-        }
-
-        // 4. แปลง Object เป็น URLSearchParams เพื่อส่งข้อมูล
-        // const params = new URLSearchParams();
-        // for (const key in formDataObject) {
-        //     params.append(key, formDataObject[key]);
-        // }
-
-        // 4. แปลง Object เป็น URLSearchParams เพื่อส่งข้อมูล
-            const params = new URLSearchParams();
-            params.append('action', 'submitRepair'); // ✅ เพิ่ม action ให้ GAS รู้ว่าเป็น submitRepair
-            for (const key in formDataObject) {
-                params.append(key, formDataObject[key]);
-            }
-
-        // --- ✨ สิ้นสุดส่วนที่แก้ไข ---
-        try {
-            const response = await fetch(SCRIPT_URL, { method: 'POST', body: params });
-            const result = await response.json();
-            if (result.result === 'success') {
-                await Swal.fire({ icon: 'success', title: 'ส่งเรื่องแจ้งซ่อมสำเร็จ!' });
-                if (liff.isInClient()) liff.closeWindow();
-            } else {
-                throw new Error(result.message || 'ไม่สามารถบันทึกข้อมูลได้');
-            }
-        } catch (error) {
-            Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: error.message });
-        } finally {
-            submitButton.disabled = false;
-        }
-    });
-        // ✨ (ใหม่) ฟังก์ชันสำหรับทดสอบการเชื่อมต่อ
-    async function testConnection() {
-        console.log("Testing connection to:", SCRIPT_URL);
-        try {
-            const response = await fetch(`${SCRIPT_URL}?action=test`);
-            const data = await response.json();
-            console.log("Test Response:", data);
-            alert("Connection Test Result: " + data.message);
-        } catch (error) {
-            console.error("Test Failed:", error);
-            alert("Connection Test FAILED. Check the console for details.");
-        }
+    // เก็บข้อมูลฟอร์ม
+    const formDataObject = {
+      lineUserId: document.getElementById('lineUserId').value,
+      lineDisplayName: document.getElementById('lineDisplayName').value,
+      linePictureUrl: document.getElementById('linePictureUrl').value,
+      userEmail: document.getElementById('userEmail').value,
+      uuid: document.getElementById('uuid').value,
+      ticketId: document.getElementById('ticketId').value,
+      repairDate: document.getElementById('repairDate').value,
+      repairTime: document.getElementById('repairTime').value,
+      userName: document.getElementById('userName').value,
+      userPosition: document.getElementById('userPosition').value,
+      userDepartment: document.getElementById('userDepartment').value,
+      userPhone: document.getElementById('userPhone').value,
+      userLocation: document.getElementById('userLocation').value,
+      equipmentName: document.getElementById('equipmentName').value,
+      equipmentId: document.getElementById('equipmentId').value,
+      problemDesc: document.getElementById('problemDesc').value,
+      pdpaConsent: document.getElementById('pdpaConsent').checked,
+      role: 'User'
+    };
+    if (imageBase64) {
+      formDataObject.imageBase64 = imageBase64;
+      formDataObject.imageName = imageFileName;
+      formDataObject.imageMimeType = imageMimeType;
     }
-    </script>
+
+    // ส่งแบบ URLSearchParams + action=submitRepair
+    const params = new URLSearchParams();
+    params.append('action', 'submitRepair'); // สำคัญมาก
+    for (const key in formDataObject) params.append(key, formDataObject[key]);
+
+    try {
+      const response = await fetch(SCRIPT_URL, { method: 'POST', body: params });
+      const result = await response.json();
+
+      if (result.result === 'success') {
+        await Swal.fire({ icon: 'success', title: 'ส่งเรื่องแจ้งซ่อมสำเร็จ!' });
+        if (liff.isInClient()) liff.closeWindow();
+      } else {
+        throw new Error(result.message || 'ไม่สามารถบันทึกข้อมูลได้');
+      }
+    } catch (error) {
+      Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: error.message });
+    } finally {
+      submitButton.disabled = false;
+    }
+  });
+
+  // ฟังก์ชันทดสอบการเชื่อมต่อ
+  async function testConnection() {
+    try {
+      const res = await fetch(`${SCRIPT_URL}?action=test`);
+      const data = await res.json();
+      alert("Connection Test Result: " + data.message);
+    } catch (err) {
+      console.error("Test Failed:", err);
+      alert("Connection Test FAILED. ดู console เพิ่มเติม");
+    }
+  }
+</script>
+
 </body>
 </html>
